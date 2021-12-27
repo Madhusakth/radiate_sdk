@@ -119,9 +119,6 @@ def get_radar_dicts(folders):
 
 
 
-# path to the sequence
-root_path = '../data/radiate/'
-sequence_name = 'tiny_foggy'
 
 network = 'faster_rcnn_R_50_FPN_3x'
 setting = 'good_and_bad_weather_radar'
@@ -129,8 +126,6 @@ setting = 'good_and_bad_weather_radar'
 # time (s) to retrieve next frame
 dt = 0.25
 
-# load sequence
-seq = radiate.Sequence(os.path.join(root_path, sequence_name), config_file='/home/ms75986/Desktop/Qualcomm/RADIATE/radiate_sdk/config/config.yaml')
 
 cfg = get_cfg()
 # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
@@ -160,46 +155,7 @@ MetadataCatalog.get(dataset_test_name).set(thing_classes=["vehicle"])
 dataset_test_name = 'test'
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from detectron2.data import build_detection_test_loader
-#evaluator = COCOEvaluator(dataset_test_name,cfg,False, output_dir="./output")
-#val_loader = build_detection_test_loader(cfg, dataset_test_name)
-#print(inference_on_dataset(predictor.model, val_loader, evaluator))
-
-
-#exit()
-
-for t in np.arange(seq.init_timestamp, seq.end_timestamp, dt):
-    output = seq.get_from_timestamp(t)
-    if output != {}:
-        radar = output['sensors']['radar_cartesian']
-        camera = output['sensors']['camera_right_rect']
-        annotations = output['annotations']['radar_cartesian']
-        predictions = predictor(radar)
-        predictions = predictions["instances"].to("cpu")
-        boxes = predictions.pred_boxes
-        print(annotations)
-
-        objects = []
-
-        for box in boxes:
-            if cfg.MODEL.PROPOSAL_GENERATOR.NAME == 'RRPN':
-                bb, angle = box.numpy()[:4], box.numpy()[4]        
-            else:
-                bb, angle = box.numpy(), 0   
-                bb[2] = bb[2] - bb[0]
-                bb[3] = bb[3] - bb[1]
-            objects.append({'bbox': {'position': bb, 'rotation': angle}, 'class_name': 'vehicle'})
-            
-        radar = seq.vis(radar, objects, color=(255,0,0))
-        #radar = seq.vis(radar, annotations, color=(255,0,0))
-
-        bboxes_cam = seq.project_bboxes_to_camera(objects,
-                                                seq.calib.right_cam_mat,
-                                                seq.calib.RadarToRight)
-        # camera = seq.vis_3d_bbox_cam(camera, bboxes_cam)
-        camera = seq.vis_bbox_cam(camera, bboxes_cam)
-
-        cv2.imshow('radar', radar)
-        cv2.imshow('camera_right_rect', camera)
-        cv2.waitKey()
-    
+evaluator = COCOEvaluator(dataset_test_name,cfg,False, output_dir="./output")
+val_loader = build_detection_test_loader(cfg, dataset_test_name)
+print(inference_on_dataset(predictor.model, val_loader, evaluator))
 

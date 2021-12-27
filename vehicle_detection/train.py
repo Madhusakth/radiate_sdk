@@ -158,7 +158,7 @@ def train(model_name, root_dir, dataset_mode, max_iter):
         return dataset_dicts
 
     dataset_train_name = dataset_mode + '_train'
-    dataset_test_name = dataset_mode + '_test'
+    dataset_test_name = 'test' #dataset_mode + '_test'
 
     DatasetCatalog.register(dataset_train_name,
                             lambda: get_radar_dicts(folders_train))
@@ -171,12 +171,13 @@ def train(model_name, root_dir, dataset_mode, max_iter):
     cfg_file = os.path.join('test', 'config', model_name + '.yaml')
     cfg = get_cfg()
     cfg.OUTPUT_DIR = output_dir
+    '''
     cfg.merge_from_file(cfg_file)
     cfg.DATASETS.TRAIN = (dataset_train_name,)
     cfg.DATASETS.TEST = (dataset_test_name,)
     cfg.DATALOADER.NUM_WORKERS = 2
     cfg.SOLVER.IMS_PER_BATCH = 2
-    cfg.SOLVER.STEPS: (25000, 35000)
+    cfg.SOLVER.STEPS: (1,1)#(25000, 35000)
     cfg.SOLVER.MAX_ITER = max_iter
     cfg.SOLVER.BASE_LR = 0.00025
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
@@ -191,7 +192,27 @@ def train(model_name, root_dir, dataset_mode, max_iter):
         trainer = Trainer(cfg)
 
     trainer.resume_or_load(resume=resume)
-    trainer.train()
+    #trainer.train()
+    '''
+    from detectron2.engine import DefaultPredictor
+    network = 'faster_rcnn_R_50_FPN_3x' 
+    cfg.MODEL.WEIGHTS = '/home/ms75986/Desktop/Qualcomm/RADIATE/radiate_sdk/vehicle_detection/weights/faster_rcnn_R_50_FPN_3x_good_and_bad_weather_radar.pth' #os.path.join(cfg.OUTPUT_DIR, "model_final.pth")  # path to the model we just trained
+    cfg.merge_from_file(os.path.join('test','config' , network + '.yaml'))
+    cfg.MODEL.DEVICE = 'cpu'
+    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class (vehicle)
+    cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.2
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
+    cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[8, 16, 32, 64, 128]]
+    predictor = DefaultPredictor(cfg)
+
+    dataset_test_name = 'test'
+
+
+    from detectron2.evaluation import COCOEvaluator, inference_on_dataset
+    from detectron2.data import build_detection_test_loader
+    evaluator = COCOEvaluator(dataset_test_name,cfg,False, output_dir="./output")
+    val_loader = build_detection_test_loader(cfg, dataset_test_name)
+    print(inference_on_dataset(predictor.model, val_loader, evaluator))
 
 
 if __name__ == "__main__":
