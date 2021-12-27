@@ -1,8 +1,8 @@
 #folders to ignore
 data/*
 vehicle_detection/weights/*
-vehicle_detecion/output/*
-
+vehicle_detection/output/*
+vehicle_detection/train_results/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
