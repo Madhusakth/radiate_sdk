@@ -17,7 +17,7 @@ from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_tes
 import os
 import json
 from detectron2.structures import BoxMode
-
+from skimage import io
 # radiate sdk
 import sys
 sys.path.insert(0, '..')
@@ -55,7 +55,7 @@ def get_radar_dicts(folders):
         idd = 0
         folder_size = len(folders)
         for folder in folders:
-            radar_folder = os.path.join(root_dir, folder,'Navtech_Cartesian')
+            radar_folder = os.path.join(root_dir, folder,'10-final-rad-info-same-meas')
             annotation_path = os.path.join(root_dir,
                                            folder, 'annotations', 'annotations.json')
             with open(annotation_path, 'r') as f_annotation:
@@ -121,7 +121,8 @@ def get_radar_dicts(folders):
 
 # path to the sequence
 root_path = '../data/radiate/'
-sequence_name = 'tiny_foggy'
+sequence_name = 'snow_1_0' #'snow_1_0' #'tiny_foggy' night_1_4 motorway_2_2
+radar_path = '10-final-rad-info-same-meas' #'Navtech_Cartesian_20' #'final-rad-info' #'reconstruct/reshaped' #'Navtech_Cartesian'
 
 network = 'faster_rcnn_R_50_FPN_3x'
 setting = 'good_and_bad_weather_radar'
@@ -130,7 +131,7 @@ setting = 'good_and_bad_weather_radar'
 dt = 0.25
 
 # load sequence
-seq = radiate.Sequence(os.path.join(root_path, sequence_name), config_file='/home/ms75986/Desktop/Qualcomm/RADIATE/radiate_sdk/config/config.yaml')
+seq = radiate.Sequence(os.path.join(root_path, sequence_name), config_file='/home/ms75986/Desktop/Qualcomm/RADIATE/radiate_sdk/config/config.yaml',reconst_path = radar_path)
 
 cfg = get_cfg()
 # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
@@ -143,41 +144,24 @@ cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
 cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[8, 16, 32, 64, 128]]
 predictor = DefaultPredictor(cfg)
 
+saveDir = root_path+ sequence_name + '/' + radar_path + '_annotated'
+if not os.path.isdir(saveDir):
+    os.mkdir(saveDir)
 
-root_dir = '../data/radiate/'
-folders_test = []
-for curr_dir in os.listdir(root_dir):
-    with open(os.path.join(root_dir, curr_dir, 'meta.json')) as f:
-        meta = json.load(f)
-    if meta["set"] == "test":
-        folders_test.append(curr_dir)
-folders_test=['tiny_foggy']
-print("test folders:", folders_test)
-dataset_test_name = 'test'
-DatasetCatalog.register(dataset_test_name,
-                            lambda: get_radar_dicts(folders_test))
-MetadataCatalog.get(dataset_test_name).set(thing_classes=["vehicle"])
-dataset_test_name = 'test'
-from detectron2.evaluation import COCOEvaluator, inference_on_dataset
-from detectron2.data import build_detection_test_loader
-#evaluator = COCOEvaluator(dataset_test_name,cfg,False, output_dir="./output")
-#val_loader = build_detection_test_loader(cfg, dataset_test_name)
-#print(inference_on_dataset(predictor.model, val_loader, evaluator))
-
-
-#exit()
-
-for t in np.arange(seq.init_timestamp, seq.end_timestamp, dt):
-    output = seq.get_from_timestamp(t)
+ids = [x for x in range(1,25)]
+#for t in np.arange(seq.radar_init_timestamp, seq.radar_end_timestamp+dt, dt):
+for t in ids:
+    output = seq.get_radar(t)
+    
     if output != {}:
         radar = output['sensors']['radar_cartesian']
-        camera = output['sensors']['camera_right_rect']
         annotations = output['annotations']['radar_cartesian']
         predictions = predictor(radar)
         predictions = predictions["instances"].to("cpu")
         boxes = predictions.pred_boxes
-        print(boxes)
-        print(annotations)
+        print("predicted:",predictions)
+        #continue
+        radar_id = output['id_radar']
 
         objects = []
 
@@ -192,15 +176,10 @@ for t in np.arange(seq.init_timestamp, seq.end_timestamp, dt):
             
         radar = seq.vis(radar, objects, color=(255,0,0))
         #radar = seq.vis(radar, annotations, color=(255,0,0))
+        file_name = saveDir + '/' + str(radar_id)+'.png'
+        io.imsave(file_name, radar)
 
-        bboxes_cam = seq.project_bboxes_to_camera(objects,
-                                                seq.calib.right_cam_mat,
-                                                seq.calib.RadarToRight)
-        # camera = seq.vis_3d_bbox_cam(camera, bboxes_cam)
-        camera = seq.vis_bbox_cam(camera, bboxes_cam)
-
-        cv2.imshow('radar', radar)
-        cv2.imshow('camera_right_rect', camera)
-        cv2.waitKey()
+        #cv2.imshow(str(radar_id), radar)
+        #cv2.waitKey(0)
     
 

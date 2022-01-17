@@ -21,7 +21,7 @@ class Sequence:
     | >>> seq.vis_all(output)
     """
 
-    def __init__(self, sequence_path, config_file='config/config.yaml'):
+    def __init__(self, sequence_path, config_file='config/config.yaml', reconst_path='Navtech_Cartesian'):
         """
         Initialise the class Sequence. This class contains the methods related to
         access the sensor and annotation information at certain timestamp
@@ -33,6 +33,7 @@ class Sequence:
         :param config_file: the path to the configuration files
         """
         self.sequence_path = sequence_path
+        self.radar_reconst_path = reconst_path
 
         # load annotations
         self.annotations_path = os.path.join(
@@ -89,11 +90,13 @@ class Sequence:
         self.init_timestamp = np.min([self.timestamp_camera['time'][0],
                                       self.timestamp_lidar['time'][0],
                                       self.timestamp_radar['time'][0]])
+        self.radar_init_timestamp = self.timestamp_radar['time'][0] 
 
         # get end timestamp
         self.end_timestamp = np.max([self.timestamp_camera['time'][-1],
                                      self.timestamp_lidar['time'][-1],
                                      self.timestamp_radar['time'][-1]])
+        self.radar_end_timestamp =self.timestamp_radar['time'][-1] 
 
     def __load_annotations(self):
         if (os.path.exists(self.annotations_path)):
@@ -183,6 +186,59 @@ class Sequence:
                         im_lidar[yy, xx] = dist
 
         return im_lidar
+
+    def get_radar(self, t, get_sensors=True, get_annotations=True):
+
+        output = {}
+        self.current_time = t
+        id_radar = t
+
+        #id_radar, ts_radar = self.get_id(
+        #    t, self.timestamp_radar, self.config['sync']['radar'])
+        
+        #if (id_radar > len(self.timestamp_radar['time'])):
+        #    return output
+
+        if get_sensors:
+            str_format = '{:06d}'
+
+            # generata paths from frames
+
+            radar_cartesian_path = os.path.join(
+                self.sequence_path, self.radar_reconst_path, str_format.format(id_radar) + '.png')
+
+            print("Processing ith radar image:",radar_cartesian_path)
+
+
+            sensors = {}
+
+            if (self.config['use_radar_cartesian']):
+                radar_cartesian = cv2.imread(radar_cartesian_path)
+                sensors['radar_cartesian'] = radar_cartesian
+
+            output['sensors'] = sensors
+
+        if (get_annotations):
+            annotations = {}
+            if (self.annotations != None):
+
+                if self.config['use_radar_cartesian']:
+                    radar_annotation_id = self.__get_correct_radar_id_from_raw_ind(
+                        id_radar)
+                    radar_annotations = self.get_annotation_from_id(
+                        radar_annotation_id)
+                    annotations['radar_cartesian'] = radar_annotations
+
+            output['annotations'] = annotations
+
+        output['id_radar'] = str(id_radar)
+
+        return output
+
+
+
+
+
 
     def get_from_timestamp(self, t, get_sensors=True, get_annotations=True):
         """method to get sensor and annotation information from some timestamp

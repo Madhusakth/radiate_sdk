@@ -55,7 +55,7 @@ def get_radar_dicts(folders):
         idd = 0
         folder_size = len(folders)
         for folder in folders:
-            radar_folder = os.path.join(root_dir, folder,'Navtech_Cartesian')
+            radar_folder = os.path.join(root_dir, folder,'reconstruct-same-meas-30')
             annotation_path = os.path.join(root_dir,
                                            folder, 'annotations', 'annotations.json')
             with open(annotation_path, 'r') as f_annotation:
@@ -101,6 +101,7 @@ def get_radar_dicts(folders):
                             else:
                                 xmin, ymin, xmax, ymax = gen_boundingbox(
                                     bbox, angle)
+                                #xmin, ymin, xmax, ymax = bbox[0],bbox[1],bbox[2]-bbox[0],bbox[3]-bbox[0]
                                 obj = {
                                     "bbox": [xmin, ymin, xmax, ymax],
                                     "bbox_mode": BoxMode.XYXY_ABS,
@@ -130,8 +131,9 @@ dt = 0.25
 cfg = get_cfg()
 # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
 cfg.merge_from_file(os.path.join('test','config' , network + '.yaml'))
-cfg.MODEL.DEVICE = 'cpu'
+#cfg.MODEL.DEVICE = 'cpu'
 cfg.MODEL.WEIGHTS = os.path.join('weights',  network +'_' + setting + '.pth')
+#cfg.MODEL.WEIGHTS = 'train_results/faster_rcnn_R_50_FPN_3x_good_and_bad_weather/model_final.pth' 
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class (vehicle)
 cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.2
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
@@ -146,7 +148,7 @@ for curr_dir in os.listdir(root_dir):
         meta = json.load(f)
     if meta["set"] == "test":
         folders_test.append(curr_dir)
-folders_test=['tiny_foggy']
+folders_test=['night_1_4'] #'tiny_foggy' #, 'snow_1_0' #, 'night_1_4', 'motorway_2_2']
 print("test folders:", folders_test)
 dataset_test_name = 'test'
 DatasetCatalog.register(dataset_test_name,
